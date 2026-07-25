@@ -1,14 +1,15 @@
 packages:
   - "apps/*"
   - "packages/*"
-allowBuilds:
-  esbuild: set this to true or false
-  sharp: set this to true or false
+
 onlyBuiltDependencies:
-  - esbuild
   - lightningcss
-  - sharp
   - "@tailwindcss/oxide"
+
+ignoredBuiltDependencies:
+  - esbuild
+  - sharp
+
 overrides:
   rollup: "npm:@rollup/wasm-node@^4.28.1"
   "@types/react": "19.0.0"
