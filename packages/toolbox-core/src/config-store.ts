@@ -1,5 +1,4 @@
 import fs from "node:fs";
-import path from "node:path";
 import { CONFIG_PATH, IMAGEGEN_HOME, IMAGES_DIR, LOGS_DIR } from "./paths";
 
 export interface ProviderEntry {

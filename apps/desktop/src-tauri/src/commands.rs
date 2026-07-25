@@ -635,13 +635,14 @@ pub fn import_providers(input: ImportInput) -> Result<ImportResult, String> {
             }
         }
         _ => {
-            // merge 保留现有
+            // merge 保留现有：用 entry API 避免二次查找
             for (id, entry) in incoming {
-                if profile.providers.contains_key(&id) {
-                    skipped += 1;
-                } else {
-                    profile.providers.insert(id, entry);
-                    added += 1;
+                match profile.providers.entry(id) {
+                    std::collections::btree_map::Entry::Occupied(_) => skipped += 1,
+                    std::collections::btree_map::Entry::Vacant(slot) => {
+                        slot.insert(entry);
+                        added += 1;
+                    }
                 }
             }
         }
