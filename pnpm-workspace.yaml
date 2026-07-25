@@ -14,3 +14,6 @@ overrides:
   rollup: "npm:@rollup/wasm-node@^4.28.1"
   "@types/react": "19.0.0"
   "@types/react-dom": "19.0.0"
+  # 强制 Next.js 传递依赖升到已修复版（消除 postcss/sharp high 漏洞）
+  postcss: "^8.5.18"
+  sharp: "^0.35.0"
