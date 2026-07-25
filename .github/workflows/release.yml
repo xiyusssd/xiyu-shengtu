@@ -60,7 +60,8 @@ jobs:
             libgtk-3-dev
 
       - name: Install deps
-        run: pnpm install --frozen-lockfile --config.strict-script-execution=false
+        # --ignore-scripts 跳过所有 postinstall；esbuild/sharp/lightningcss 的原生二进制走 optionalDependencies，无需构建脚本
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Build & bundle
         env:
