@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { loadConfig } from "@xiyu-shengtu/toolbox-core";
+import { appendHistoryItem, loadConfig } from "@xiyu-shengtu/toolbox-core";
 import { getProvider } from "@xiyu-shengtu/provider-core";
 
 export const runtime = "nodejs";
@@ -107,6 +107,22 @@ export async function POST(req: NextRequest) {
           );
           for await (const evt of iter) {
             controller.enqueue(encodeSSE({ ...evt, taskIndex }));
+            // 图片事件 → 落盘到共享 ~/.imagegen/，让桌面 App 图库也能看到
+            if (evt.type === "image" && evt.dataUrl) {
+              try {
+                appendHistoryItem({
+                  prompt: item.prompt,
+                  providerId: body.providerId ?? "",
+                  providerType: providerEntry.type,
+                  width: size.w,
+                  height: size.h,
+                  seed: evt.seed,
+                  dataUrl: evt.dataUrl,
+                });
+              } catch (e) {
+                console.warn("落盘历史失败:", e);
+              }
+            }
           }
         } catch (err) {
           controller.enqueue(

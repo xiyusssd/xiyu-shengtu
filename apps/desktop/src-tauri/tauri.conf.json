@@ -4,9 +4,9 @@
   "version": "0.2.0",
   "identifier": "com.xiyu.shengtu",
   "build": {
-    "beforeDevCommand": "node_modules/.bin/vite",
+    "beforeDevCommand": "pnpm exec vite",
     "devUrl": "http://127.0.0.1:1420",
-    "beforeBuildCommand": "node_modules/.bin/tsc -b && node_modules/.bin/vite build",
+    "beforeBuildCommand": "pnpm exec tsc -b && pnpm exec vite build",
     "frontendDist": "../dist"
   },
   "app": {
