@@ -1,0 +1,30 @@
+node_modules/
+dist/
+build/
+out/
+.next/
+.turbo/
+target/
+*.tsbuildinfo
+.DS_Store
+.env
+.env.local
+coverage/
+
+# 私有数据：本地配置目录绝不入库
+.imagegen/
+
+# 打包产物（走 GitHub Releases，不入库）
+apps/desktop/dist/
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/
+apps/desktop/src-tauri/Cargo.lock.orig
+
+# 签名密钥（永远不要入库！）
+*.key
+*.pem
+!apps/desktop/src-tauri/icons/*.icns
+
+# 日志
+*.log
+/tmp/xiyu-*.log

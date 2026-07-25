@@ -1,0 +1,24 @@
+{
+  "name": "xiyu-shengtu",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.17.0",
+  "scripts": {
+    "desktop": "bash apps/desktop/scripts/start.sh",
+    "desktop:dev": "cd apps/desktop && cargo tauri dev",
+    "desktop:build": "cd apps/desktop && cargo tauri build",
+    "dev": "pnpm --parallel --filter @xiyu-shengtu/studio --filter @xiyu-shengtu/toolbox-web dev",
+    "dev:studio": "pnpm --filter @xiyu-shengtu/studio dev",
+    "dev:toolbox": "pnpm --filter @xiyu-shengtu/toolbox-web dev",
+    "build": "pnpm -r build",
+    "cli": "pnpm --filter @xiyu-shengtu/toolbox-cli start"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "pnpm": {
+    "overrides": {
+      "rollup": "npm:@rollup/wasm-node@^4.28.1"
+    }
+  }
+}
