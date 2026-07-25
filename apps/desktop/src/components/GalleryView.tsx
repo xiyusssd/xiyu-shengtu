@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { emit as busEmit } from "@/lib/eventBus";
+import { exportBatchAsZip } from "@/lib/imageExport";
 import {
   clearHistory,
   deleteHistoryItem,
@@ -160,7 +161,6 @@ export function GalleryView() {
           seed: item.seed,
         }))
         .filter((e) => e.dataUrl);
-      const { exportBatchAsZip } = await import("@/lib/imageExport");
       await exportBatchAsZip(entries, `gallery-${Date.now()}.zip`);
       toast.success(`已导出 ${entries.length} 张`);
       exitSelectMode();

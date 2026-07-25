@@ -70,9 +70,9 @@ jobs:
         shell: bash
         run: |
           cd apps/desktop
-          pnpm exec vite build
-          cd src-tauri
-          cargo tauri build --target ${{ matrix.target }}
+          # 用 npm 版 tauri CLI（@tauri-apps/cli），无需 cargo install
+          # beforeBuildCommand 会自动跑 tsc + vite build
+          pnpm exec tauri build --target ${{ matrix.target }}
 
       - name: Ad-hoc codesign (macOS)
         if: startsWith(matrix.runner, 'macos')
