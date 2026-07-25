@@ -11,6 +11,9 @@ use crate::config::{ensure_dirs, imagegen_home, images_dir};
 const HISTORY_INDEX_FILE: &str = "history.json";
 const MAX_HISTORY_ITEMS: usize = 500;
 
+/// 保护 history.json 的 read-modify-write，避免并发批量保存丢条目
+static HISTORY_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HistoryItem {
@@ -51,7 +54,8 @@ fn load_index() -> Result<HistoryIndex> {
 fn save_index(idx: &HistoryIndex) -> Result<()> {
     ensure_dirs()?;
     let path = index_path();
-    let tmp = path.with_extension("json.tmp");
+    // tmp 名带 pid 避免多写者共享同一临时文件
+    let tmp = path.with_extension(format!("json.{}.tmp", std::process::id()));
     let json = serde_json::to_string_pretty(idx)?;
     fs::write(&tmp, json)?;
     fs::rename(&tmp, &path)?;
@@ -66,16 +70,8 @@ fn now_millis() -> i64 {
 }
 
 fn short_id() -> String {
-    format!("{:x}", now_millis()) + "-" + &format!("{:x}", fastrand())
-}
-
-fn fastrand() -> u32 {
-    let mut nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.subsec_nanos())
-        .unwrap_or(0);
-    nanos = nanos.wrapping_mul(2654435761);
-    nanos
+    // uuid v4 保证跨线程/毫秒不碰撞
+    format!("{:x}-{}", now_millis(), uuid::Uuid::new_v4().simple())
 }
 
 fn extract_extension(mime_or_url: &str) -> &str {
@@ -133,6 +129,8 @@ pub fn append_item(input: AppendItemInput) -> Result<HistoryItem> {
         created_at: now_millis(),
     };
 
+    // 加锁：保护 load→insert→save 的原子性，防并发批量保存互相覆盖
+    let _guard = HISTORY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let mut idx = load_index()?;
     idx.items.insert(0, item.clone());
     if idx.items.len() > MAX_HISTORY_ITEMS {

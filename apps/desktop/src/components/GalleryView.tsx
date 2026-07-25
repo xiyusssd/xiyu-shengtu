@@ -139,25 +139,25 @@ export function GalleryView() {
     const selected = filtered.filter((i) => selectedIds.has(i.id));
     if (selected.length === 0) return;
     try {
-      // 需要用缓存里的 dataUrl；先确保所有选中项都有缓存
-      const missing = selected.filter((i) => !imageCache[i.id]);
+      // 用局部 map 累积，避免直接 mutate React state
+      const local: Record<string, string> = { ...imageCache };
+      const missing = selected.filter((i) => !local[i.id]);
       if (missing.length > 0) {
         toast.info(`正在读取 ${missing.length} 张图片…`);
         for (const item of missing) {
           try {
-            const url = await readHistoryImage(item.relativePath);
-            setImageCache((cache) => ({ ...cache, [item.id]: url }));
-            (imageCache as any)[item.id] = url;
+            local[item.id] = await readHistoryImage(item.relativePath);
           } catch {
             /* skip */
           }
         }
+        setImageCache(local);
       }
       const entries = selected
         .map((item, idx) => ({
           filename: `${String(idx + 1).padStart(3, "0")}-${item.id}.png`,
           prompt: item.prompt,
-          dataUrl: imageCache[item.id],
+          dataUrl: local[item.id],
           seed: item.seed,
         }))
         .filter((e) => e.dataUrl);

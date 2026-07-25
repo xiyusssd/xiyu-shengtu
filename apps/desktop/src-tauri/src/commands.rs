@@ -433,75 +433,62 @@ pub async fn generate_batch(
                 seed: seed_shared,
             };
 
-            // 缓存最后一次尝试的事件；只有确定不再重试时才 flush 到 channel
+            // progress 立即流式转发；image/error 缓冲，用于重试抑制（失败重试时丢弃本次的图/错）
             let mut attempt = 0u32;
             loop {
                 attempt += 1;
-                let mut buffer: Vec<BatchEvent> = Vec::new();
-                let mut had_image = false;
+                let mut pending_image: Option<BatchEvent> = None;
                 let mut had_error: Option<(String, String)> = None;
                 {
+                    let channel_p = channel.clone();
                     let mut emit = |ev: GenerateEvent| match ev {
                         GenerateEvent::Progress { percent, message } => {
-                            buffer.push(BatchEvent::Progress {
+                            // 进度实时发，不缓冲
+                            let _ = channel_p.send(BatchEvent::Progress {
                                 task_index: idx,
                                 percent,
                                 message,
                             });
                         }
                         GenerateEvent::Image { data_url, seed } => {
-                            had_image = true;
-                            buffer.push(BatchEvent::Image {
+                            pending_image = Some(BatchEvent::Image {
                                 task_index: idx,
                                 data_url,
                                 seed,
                             });
                         }
                         GenerateEvent::Error { code, message } => {
-                            had_error = Some((code.clone(), message.clone()));
-                            buffer.push(BatchEvent::Error {
-                                task_index: idx,
-                                code,
-                                message,
-                            });
+                            had_error = Some((code, message));
                         }
                         GenerateEvent::Done => {}
                     };
                     if let Err(e) = impl_.generate(&entry, &req, &mut emit).await {
                         had_error = Some(("runtime_error".to_string(), e.to_string()));
-                        buffer.push(BatchEvent::Error {
-                            task_index: idx,
-                            code: "runtime_error".into(),
-                            message: e.to_string(),
-                        });
                     }
                 }
 
-                // 成功：flush 缓冲后跳出
-                if had_image && had_error.is_none() {
-                    for evt in buffer {
-                        let _ = channel.send(evt);
-                    }
+                // 有图即算成功（partial success 也不再无谓重试）→ 发图跳出
+                if let Some(img) = pending_image.take() {
+                    let _ = channel.send(img);
                     break;
                 }
-                // 失败：还能重试
-                if attempt <= retry_max {
-                    let _ = had_error;
+                // 无图 + 有错 + 还能重试
+                if had_error.is_some() && attempt <= retry_max {
                     let _ = channel.send(BatchEvent::Progress {
                         task_index: idx,
                         percent: 5,
-                        message: Some(format!(
-                            "重试 {} / {}",
-                            attempt,
-                            retry_max + 1
-                        )),
+                        message: Some(format!("重试 {} / {}", attempt, retry_max + 1)),
                     });
                     tokio::time::sleep(std::time::Duration::from_millis(600)).await;
                     continue;
                 }
-                // 用尽重试：flush 最后一次的缓冲（含 error）
-                for evt in buffer {
-                    let _ = channel.send(evt);
+                // 用尽重试或无错无图：发最终 error（若有）
+                if let Some((code, message)) = had_error {
+                    let _ = channel.send(BatchEvent::Error {
+                        task_index: idx,
+                        code,
+                        message,
+                    });
                 }
                 break;
             }

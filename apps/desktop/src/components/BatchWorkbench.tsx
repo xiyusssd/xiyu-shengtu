@@ -262,12 +262,11 @@ export function BatchWorkbench() {
   /** 只跑单行（用于"再生一张"）*/
   async function rerunRow(rowId: string) {
     if (batchStatus === "running") return;
-    const idx = rows.findIndex((r) => r.id === rowId);
-    if (idx < 0) return;
-    const row = rows[idx];
-    if (!row.prompt.trim() || !providerId) return;
+    const row = rows.find((r) => r.id === rowId);
+    if (!row || !row.prompt.trim() || !providerId) return;
 
-    patchByIndex(idx, {
+    // 用 id 定位而非 index：即便重跑期间用户拖拽重排也不会错行
+    patchRow(rowId, {
       status: "running",
       progress: 0,
       result: undefined,
@@ -291,11 +290,10 @@ export function BatchWorkbench() {
           seed: Number.isFinite(parsedSeed) ? parsedSeed : undefined,
         },
         (evt) => {
-          // task_index 恒为 0，映射回 idx
           if (evt.kind === "progress") {
-            patchByIndex(idx, { progress: evt.percent });
+            patchRow(rowId, { progress: evt.percent });
           } else if (evt.kind === "image") {
-            patchByIndex(idx, {
+            patchRow(rowId, {
               status: "done",
               progress: 100,
               result: { dataUrl: evt.dataUrl, seed: evt.seed },
@@ -312,7 +310,7 @@ export function BatchWorkbench() {
               dataUrl: evt.dataUrl,
             }).catch(() => {});
           } else if (evt.kind === "error") {
-            patchByIndex(idx, {
+            patchRow(rowId, {
               status: "error",
               errorMsg: evt.message,
             });
@@ -320,7 +318,7 @@ export function BatchWorkbench() {
         }
       );
     } catch (err) {
-      patchByIndex(idx, {
+      patchRow(rowId, {
         status: "error",
         errorMsg: err instanceof Error ? err.message : String(err),
       });

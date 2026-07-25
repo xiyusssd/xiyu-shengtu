@@ -281,7 +281,7 @@ impl Provider for OpenAICompatProvider {
             };
             emit(GenerateEvent::Image {
                 data_url,
-                seed: None,
+                seed: req.seed,
             });
             let _ = item.revised_prompt; // 备用
         }

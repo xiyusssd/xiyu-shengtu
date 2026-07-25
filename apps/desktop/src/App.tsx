@@ -97,7 +97,7 @@ export function App() {
   useEffect(() => {
     const stop = listen<string>("menu:navigate", (evt) => {
       const target = evt.payload as Tab;
-      if (["generate", "providers", "gallery", "settings"].includes(target)) {
+      if (["generate", "providers", "gallery", "dashboard", "settings"].includes(target)) {
         setTab(target);
       }
     });
@@ -115,7 +115,7 @@ export function App() {
   // 命令面板导航
   useEffect(() => {
     const off = busOn<string>("cmd:navigate", (target) => {
-      if (["generate", "providers", "gallery", "settings"].includes(target)) {
+      if (["generate", "providers", "gallery", "dashboard", "settings"].includes(target)) {
         setTab(target as Tab);
       }
     });

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
+  BarChart3,
   Bookmark,
   Images,
   LayoutGrid,
@@ -32,6 +33,7 @@ const TABS: Array<{ id: string; label: string; icon: React.ReactNode }> = [
   { id: "generate", label: "批量生图", icon: <Sparkles className="size-4" /> },
   { id: "providers", label: "Provider 管理", icon: <LayoutGrid className="size-4" /> },
   { id: "gallery", label: "图库", icon: <Images className="size-4" /> },
+  { id: "dashboard", label: "统计", icon: <BarChart3 className="size-4" /> },
   { id: "settings", label: "设置", icon: <Settings2 className="size-4" /> },
 ];
 
@@ -146,7 +148,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     }
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setCursor((c) => Math.min(c + 1, filtered.length - 1));
+      setCursor((c) => Math.max(0, Math.min(c + 1, filtered.length - 1)));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setCursor((c) => Math.max(c - 1, 0));

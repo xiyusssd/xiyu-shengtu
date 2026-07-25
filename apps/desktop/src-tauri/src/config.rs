@@ -268,7 +268,7 @@ pub fn load_config() -> Result<AppConfig> {
 pub fn save_config(cfg: &AppConfig) -> Result<()> {
     ensure_dirs()?;
     let path = config_path();
-    let tmp = path.with_extension("json.tmp");
+    let tmp = path.with_extension(format!("json.{}.tmp", std::process::id()));
     let camel: camel_compat::AppConfigC = cfg.clone().into();
     let json = serde_json::to_string_pretty(&camel)?;
     fs::write(&tmp, json)?;
@@ -277,10 +277,14 @@ pub fn save_config(cfg: &AppConfig) -> Result<()> {
 }
 
 pub fn mask_key(key: &str) -> String {
-    if key.len() <= 8 {
+    // 按字符而非字节切片，避免非 ASCII key panic
+    let chars: Vec<char> = key.chars().collect();
+    if chars.len() <= 8 {
         "***".to_string()
     } else {
-        format!("{}***{}", &key[..4], &key[key.len() - 4..])
+        let head: String = chars.iter().take(4).collect();
+        let tail: String = chars.iter().skip(chars.len() - 4).collect();
+        format!("{head}***{tail}")
     }
 }
 

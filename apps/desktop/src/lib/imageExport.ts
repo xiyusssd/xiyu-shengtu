@@ -3,8 +3,12 @@ import JSZip from "jszip";
 /** data URL 或裸 base64 → Uint8Array */
 export function dataUrlToBytes(dataUrl: string): { bytes: Uint8Array; mime: string; ext: string } {
   const match = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
-  const mime = match?.[1] ?? "image/png";
-  const b64 = match?.[2] ?? dataUrl;
+  if (!match) {
+    // 只接受 base64 data URL；其它（blob:/http:/文件路径）明确报错，避免 atob 抛不透明异常
+    throw new Error("不支持的图片格式（需要 base64 data URL）");
+  }
+  const mime = match[1];
+  const b64 = match[2];
   const binary = atob(b64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
@@ -76,10 +80,20 @@ export async function exportBatchAsZip(
   const zip = new JSZip();
   const metadataLines: string[] = ["# xiyu-shengtu 批量导出", ""];
 
+  const usedNames = new Set<string>();
   entries.forEach((entry, idx) => {
     const { bytes, ext } = dataUrlToBytes(entry.dataUrl);
+    // 优先用调用方给的 filename；没有则回退序号名。保证扩展名 + 去重
     const rowNum = String(idx + 1).padStart(2, "0");
-    const filename = `${rowNum}.${ext}`;
+    let base = entry.filename?.trim()
+      ? entry.filename.replace(/\.(png|jpg|jpeg|webp|svg)$/i, "")
+      : rowNum;
+    let filename = `${base}.${ext}`;
+    let n = 2;
+    while (usedNames.has(filename)) {
+      filename = `${base}-${n++}.${ext}`;
+    }
+    usedNames.add(filename);
     zip.file(filename, bytes);
     metadataLines.push(
       `## ${filename}`,
