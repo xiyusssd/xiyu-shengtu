@@ -126,6 +126,7 @@ pub fn run() {
             commands::clear_history,
             commands::read_history_image,
             commands::open_config_folder,
+            commands::translate_prompt,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

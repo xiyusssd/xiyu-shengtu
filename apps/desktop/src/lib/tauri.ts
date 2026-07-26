@@ -232,3 +232,12 @@ export function readHistoryImage(relativePath: string): Promise<string> {
 export function openConfigFolder(): Promise<string> {
   return invoke<string>("open_config_folder");
 }
+
+/* -------- 提示词翻译/润色 -------- */
+export function translatePrompt(input: {
+  text: string;
+  providerId?: string;
+  mode?: "translate" | "polish";
+}): Promise<string> {
+  return invoke<string>("translate_prompt", { input });
+}

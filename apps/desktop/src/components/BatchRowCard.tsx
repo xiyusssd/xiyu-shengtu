@@ -6,15 +6,20 @@ import {
   Copy,
   GripVertical,
   ImagePlus,
+  Languages,
   Loader2,
   RefreshCw,
+  Tags,
   Trash2,
   TriangleAlert,
   X,
 } from "lucide-react";
 import { TemplatePicker } from "./TemplatePicker";
 import { PromptAutocomplete } from "./PromptAutocomplete";
+import { StyleTagPicker } from "./StyleTagPicker";
+import { appendTag } from "@/lib/styleTags";
 import { copyImageToClipboard } from "@/lib/imageExport";
+import { translatePrompt } from "@/lib/tauri";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { BatchRowData } from "@/lib/types";
@@ -95,6 +100,24 @@ export function BatchRowCard({
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [templateOpen, setTemplateOpen] = useState(false);
+  const [tagOpen, setTagOpen] = useState(false);
+  const [translating, setTranslating] = useState(false);
+
+  async function doTranslate() {
+    if (!row.prompt.trim() || translating) return;
+    setTranslating(true);
+    try {
+      const out = await translatePrompt({ text: row.prompt, mode: "translate" });
+      onChange({ prompt: out });
+      toast.success("已翻译为英文");
+    } catch (err) {
+      toast.error("翻译失败", {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setTranslating(false);
+    }
+  }
 
   async function handleFile(file: File | null | undefined) {
     if (!file) return;
@@ -250,15 +273,39 @@ export function BatchRowCard({
             textareaRef.current?.focus();
           }}
         />
-        <button
-          type="button"
-          onClick={() => setTemplateOpen(true)}
-          disabled={disabled}
-          title="从模板填入"
-          className="absolute right-1.5 top-1.5 grid size-6 place-items-center rounded text-[var(--color-text-subtle)] hover:bg-[var(--color-panel-hover)] hover:text-[var(--color-text)] disabled:cursor-not-allowed disabled:opacity-30"
-        >
-          <Bookmark className="size-3.5" />
-        </button>
+        <div className="absolute right-1.5 top-1.5 flex flex-col gap-1">
+          <button
+            type="button"
+            onClick={() => setTemplateOpen(true)}
+            disabled={disabled}
+            title="从模板填入"
+            className="grid size-6 place-items-center rounded text-[var(--color-text-subtle)] hover:bg-[var(--color-panel-hover)] hover:text-[var(--color-text)] disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            <Bookmark className="size-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setTagOpen(true)}
+            disabled={disabled}
+            title="追加风格标签"
+            className="grid size-6 place-items-center rounded text-[var(--color-text-subtle)] hover:bg-[var(--color-panel-hover)] hover:text-[var(--color-text)] disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            <Tags className="size-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={doTranslate}
+            disabled={disabled || translating || !row.prompt.trim()}
+            title="翻译成英文（需 openai-compat Provider）"
+            className="grid size-6 place-items-center rounded text-[var(--color-text-subtle)] hover:bg-[var(--color-panel-hover)] hover:text-[var(--color-text)] disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            {translating ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Languages className="size-3.5" />
+            )}
+          </button>
+        </div>
         {row.prompt.length > 0 && (
           <span className="absolute bottom-1.5 right-2 text-[10px] tabular-nums text-[var(--color-text-subtle)]">
             {row.prompt.length}
@@ -351,6 +398,13 @@ export function BatchRowCard({
           onClose={() => setTemplateOpen(false)}
           onPick={(prompt) => onChange({ prompt })}
           currentPrompt={row.prompt}
+        />
+      )}
+
+      {tagOpen && (
+        <StyleTagPicker
+          onClose={() => setTagOpen(false)}
+          onPick={(append) => onChange({ prompt: appendTag(row.prompt, append) })}
         />
       )}
     </div>

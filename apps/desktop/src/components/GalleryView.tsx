@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import {
   Check,
   Copy,
+  Crop,
   Download,
   Images,
   Loader2,
@@ -24,6 +25,7 @@ import {
   readHistoryImage,
   type HistoryItem,
 } from "@/lib/tauri";
+import { ImageEditorModal } from "./ImageEditorModal";
 
 /**
  * 图库：列出历史生成图，点击查看大图 / 下载 / 删除
@@ -583,15 +585,19 @@ function PreviewModal({
   onPrev: () => void;
   onNext: () => void;
 }) {
+  const [editing, setEditing] = useState(false);
+
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
+      // 编辑器打开时不抢键盘
+      if (editing) return;
       if (e.key === "Escape") onClose();
       else if (e.key === "ArrowLeft") onPrev();
       else if (e.key === "ArrowRight") onNext();
     }
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [onClose, onPrev, onNext]);
+  }, [onClose, onPrev, onNext, editing]);
 
   function copyPrompt() {
     navigator.clipboard.writeText(item.prompt).then(() => {
@@ -682,6 +688,15 @@ function PreviewModal({
               <RotateCcw className="size-3.5" />
               重新使用
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setEditing(true)}
+              disabled={!dataUrl}
+            >
+              <Crop className="size-3.5" />
+              裁剪 / 缩放
+            </Button>
             <Button variant="outline" size="sm" onClick={copyPrompt}>
               <Copy className="size-3.5" />
               复制提示词
@@ -697,6 +712,18 @@ function PreviewModal({
           </div>
         </aside>
       </div>
+
+      {editing && dataUrl && (
+        <ImageEditorModal
+          dataUrl={dataUrl}
+          meta={{
+            prompt: item.prompt,
+            providerId: item.providerId,
+            providerType: item.providerType,
+          }}
+          onClose={() => setEditing(false)}
+        />
+      )}
     </div>
   );
 }

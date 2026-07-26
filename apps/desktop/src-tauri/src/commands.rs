@@ -813,3 +813,121 @@ pub fn open_config_folder() -> Result<String, String> {
     }
     Ok(dir_str)
 }
+
+/* ---------------- 提示词翻译 / 润色 ---------------- */
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TranslateInput {
+    pub text: String,
+    /// 可选：指定用哪个 provider（需是 openai-compat）；不填则用当前 profile 里第一个 openai-compat
+    pub provider_id: Option<String>,
+    /// "translate"（中→英）| "polish"（英文润色扩写）
+    pub mode: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ChatResp {
+    #[serde(default)]
+    choices: Vec<ChatChoice>,
+    #[serde(default)]
+    error: Option<serde_json::Value>,
+}
+#[derive(Debug, Deserialize)]
+struct ChatChoice {
+    #[serde(default)]
+    message: Option<ChatMsg>,
+}
+#[derive(Debug, Deserialize)]
+struct ChatMsg {
+    #[serde(default)]
+    content: Option<String>,
+}
+
+#[tauri::command]
+pub async fn translate_prompt(input: TranslateInput) -> Result<String, String> {
+    if input.text.trim().is_empty() {
+        return Err("文本为空".into());
+    }
+    let cfg = load_config().map_err(to_string_err)?;
+    let profile = active_profile(&cfg).map_err(to_string_err)?;
+
+    // 选一个 openai-compat provider
+    let entry = if let Some(pid) = input.provider_id.as_ref() {
+        profile.providers.get(pid).cloned()
+    } else {
+        profile
+            .providers
+            .values()
+            .find(|e| e.type_ == "openai-compat")
+            .cloned()
+    };
+    let entry = entry.ok_or_else(|| {
+        "需要一个 openai-compat 类型的 Provider 来做翻译/润色".to_string()
+    })?;
+    if entry.type_ != "openai-compat" {
+        return Err("指定的 Provider 不是 openai-compat 类型".into());
+    }
+    let endpoint = entry.endpoint.ok_or_else(|| "缺少 endpoint".to_string())?;
+    let api_key = entry.api_key.ok_or_else(|| "缺少 apiKey".to_string())?;
+    // chat 模型：优先 extra.chatModel，否则用一个通用默认
+    let chat_model = entry
+        .extra
+        .as_ref()
+        .and_then(|v| v.get("chatModel"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("gpt-4o-mini")
+        .to_string();
+
+    let is_polish = input.mode.as_deref() == Some("polish");
+    let system = if is_polish {
+        "You are an expert prompt engineer for text-to-image models. Rewrite the user's prompt in English, enriching it with vivid, concrete visual details (composition, lighting, style, quality tags). Output ONLY the final prompt, no explanations, no quotes."
+    } else {
+        "You are a translator for text-to-image prompts. Translate the user's input into concise, natural English suitable as an image-generation prompt. Output ONLY the translated prompt, no explanations, no quotes."
+    };
+
+    let url = {
+        let b = endpoint.trim_end_matches('/');
+        format!("{b}/chat/completions")
+    };
+    let body = serde_json::json!({
+        "model": chat_model,
+        "messages": [
+            { "role": "system", "content": system },
+            { "role": "user", "content": input.text }
+        ],
+        "temperature": 0.7,
+    });
+
+    let client = providers::build_http_client().map_err(to_string_err)?;
+    let resp = client
+        .post(&url)
+        .bearer_auth(&api_key)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("请求失败：{e}"))?;
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        return Err(format!(
+            "HTTP {} {}",
+            status,
+            text.chars().take(200).collect::<String>()
+        ));
+    }
+    let parsed: ChatResp = resp.json().await.map_err(|e| format!("解析失败：{e}"))?;
+    if let Some(err) = parsed.error {
+        return Err(format!("接口返回错误：{err}"));
+    }
+    let out = parsed
+        .choices
+        .into_iter()
+        .next()
+        .and_then(|c| c.message)
+        .and_then(|m| m.content)
+        .map(|s| s.trim().trim_matches('"').to_string())
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| "模型未返回内容".to_string())?;
+    Ok(out)
+}

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { listHistory, readConfig, type HistoryItem } from "@/lib/tauri";
 import { on as busOn } from "@/lib/eventBus";
 import { ProviderTypeIcon } from "./ProviderTypeIcon";
+import { summarizeCost, formatUsd } from "@/lib/costEstimate";
 
 /**
  * 数据看板：总量 · 今日 · 本周 · Provider 分布 · 最近 7 天曲线
@@ -42,6 +43,7 @@ export function DashboardView() {
   }, [reload]);
 
   const stats = useMemo(() => computeStats(items), [items]);
+  const cost = useMemo(() => summarizeCost(items), [items]);
 
   return (
     <div className="mx-auto flex h-full max-w-4xl flex-col gap-6 overflow-y-auto px-6 py-8">
@@ -153,6 +155,65 @@ export function DashboardView() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+      </section>
+
+      {/* 成本估算 */}
+      <section className="flex flex-col gap-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-panel)] p-5">
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-semibold">成本估算</h2>
+          <span className="text-[10px] text-[var(--color-text-subtle)]">
+            · 粗略参考，实际以各家账单为准
+          </span>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-subtle)]">
+              累计
+            </div>
+            <div className="mt-1 text-xl font-semibold tabular-nums">
+              {formatUsd(cost.total)}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-subtle)]">
+              今日
+            </div>
+            <div className="mt-1 text-xl font-semibold tabular-nums">
+              {formatUsd(cost.today)}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-subtle)]">
+              计费张数
+            </div>
+            <div className="mt-1 text-xl font-semibold tabular-nums">
+              {cost.billableCount}
+            </div>
+          </div>
+        </div>
+        {cost.byProvider.some((r) => r.cost > 0) && (
+          <div className="flex flex-col gap-1.5 border-t border-[var(--color-border)] pt-3">
+            {cost.byProvider
+              .filter((r) => r.cost > 0)
+              .map((row) => (
+                <div
+                  key={row.providerId}
+                  className="flex items-center justify-between text-xs"
+                >
+                  <span className="flex items-center gap-2 truncate text-[var(--color-text-muted)]">
+                    <ProviderTypeIcon type={row.providerType} size={16} />
+                    {row.providerId}
+                  </span>
+                  <span className="tabular-nums text-[var(--color-text)]">
+                    {formatUsd(row.cost)}{" "}
+                    <span className="text-[var(--color-text-subtle)]">
+                      / {row.count} 张
+                    </span>
+                  </span>
+                </div>
+              ))}
           </div>
         )}
       </section>
